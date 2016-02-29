@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block sidebar %}
+  <ul class="nav nav-sidebar">
+    <li><a href="{% url "host_manage" %}">主机管理</a></li>
+    <li><a href="{% url 'multi_cmd' %}">批量命令</a></li>
+    <li><a href="{% url 'file_transfer' %}">文件服务</a></li>
+    <li><a href="{% url 'program_handle' %}">程序发布</a></li>
+    <li><a href="#">计划任务</a></li>
+    <li><a href="#">审计系统</a></li>
+  </ul>
+{% endblock %}
+
+{% block content-panel %}
+Host
+{% endblock %}
+
+{% block bottom-js %}
+
+    <script type="text/javascript">
+
+    $(document).ready(function(){
+        $("#navbar-menu a[href='{% url 'hosts' %}'").parent().addClass("active");
+
+    }); //end doc ready
+
+    </script>
+
+{% endblock %}

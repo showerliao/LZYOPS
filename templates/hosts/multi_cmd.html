@@ -1,0 +1,166 @@
+{% extends "hosts/host.html" %}
+
+{% block content-panel %}
+    <div class="col-md-3" style="margin-left: -80px; width: 300px">
+        主机组:
+        <div class="panel panel-default">
+          <div class="panel-body">
+
+            <!--获取当前登录用户的可管理主机组-->
+            <ul  class="list-group">
+              <li class="list-group-item borderless">
+                  未分组主机
+                <span class="badge">{{ request.user.bind_hosts.select_related.count }}</span>
+              </li>
+              {% for group in request.user.host_groups.select_related %}
+                <li id="group-list" class="list-group-item borderless">
+                    <input onclick="checkboxChoose(this)" data="group-choose" type="checkbox" value=""/>
+                    <a data="group" href="#">
+                        {{ group.name }}
+
+                    </a>
+                        <span class="badge">{{ group.bindhosttouser_set.select_related.count }}</span>
+                <!-- 组下面的主机列表 -->
+                    <ul class="hide list-tree">
+                        {% for h in group.bindhosttouser_set.select_related %}
+                        <li class="list-group-item borderless">
+                            <input data="host-choose" type="checkbox" value="{{ h.id }}"/> {{ h.host.host_name }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+    </div>
+    <div class="col-md-9" style="margin-left: -20px; width: 82%">
+        命令执行区域:
+        <div class="panel panel-default">
+          <div class="panel-body">
+            <textarea name="cmd" class="form-control" rows="3" placeholder="请输入要执行的命令......"></textarea>
+              <br>
+            <button type="button" class="btn btn-success pull-right" onclick="SubmitTask('multi_cmd')">执行命令</button>
+
+            <div id="err-msgs"></div>
+
+            <hr/>
+
+            <div id="show-cmd-result"></div>
+
+          </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block bottom-js %}
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $("#group-list a[data='group']").click(function(){
+               $(this).nextAll().toggleClass('hide');
+
+            }); // end click
+        }); // end document ready
+
+    // 批量命令主机组列表选择函数
+    function checkboxChoose(ele) {
+        if (ele.checked){ // 如果选择主机组,则下面所有主机全选
+            $(ele).next().next().next().children().children().filter("input").prop("checked", true);
+
+        }else { // 如果取消主机组选择,则下面所有主机取消全选
+            $(ele).next().next().next().children().children().filter("input").prop("checked", false);
+        };
+
+    }; // end checkboxChoose
+
+    // 任务提交函数
+    function SubmitTask(task_type){
+        if (task_type == "multi_cmd"){
+          FormVerification(task_type);
+        };
+    }; // end SubmitTask
+
+    // 表单认证函数
+    function FormVerification(task_type){
+        var err_list = [];
+        var data_list = {};
+        if (task_type == 'multi_cmd'){
+            var selected_host = VerifyHostSelection();
+            var cmd_text = $.trim($("textarea[name='cmd']").val());
+            data_list['task_type'] = task_type;
+            data_list['selected_host'] = selected_host;
+            data_list['cmd_text'] = cmd_text;
+            // console.log('cmd:' + cmd_text)
+            if (selected_host.length == 0){  // 如果没有选择主机, 向错误信息列表添加对应错误信息
+                err_list.push(["验证失败", "未选择主机!"])
+            }
+            if (cmd_text.length == 0){ // 如果没有输入命令或者输入命令为空, 向错误信息列表添加对应错误信息
+                err_list.push(["验证失败", "未输入命令!"])
+            }
+
+            if (err_list.length > 0){ // 如果错误信息列表不为空, 表示有错误信息, 则在页面显示错误信息
+                $("#err-msgs").html("");
+                $.each(err_list, function(index, item){
+                    var err_msg = "<p style='color: red'>" + index + ". " + item[1] + "</p>";
+                    $("#err-msgs").append(err_msg); // 前端显示错误信息
+                }); // end each
+            }else { // 没有错误信息, 提交任务
+                $("#err-msgs").html("");
+                data_list['csrfmiddlewaretoken'] = $("input[name='csrfmiddlewaretoken']").val();
+                console.log(data_list);
+                $.post("{% url "submit_task" %}", data_list, function(callback){
+                    console.log(callback);
+                    task_id_obj = JSON.parse(callback);
+                    RefreshGetTaskResult(task_id_obj.task_id);
+                }); // end post
+            };
+        };
+    }; // end FormVerification
+
+    // host choose Verify function
+    function VerifyHostSelection(){
+        var selected_hosts = [];  // 定义一个空列表,用来放置选择的主机
+        var all_hosts = $("input[data='host-choose']");
+        $.each(all_hosts, function(index, ele){
+            if (ele.checked){
+              selected_hosts.push($(ele).val());
+            };
+
+        }); // end each
+        // console.log(selected_hosts);
+
+        return selected_hosts; // 返回选择的主机
+    }; // end VerifyHostSelection
+
+    function RefreshGetTaskResult(task_id){
+        GetTaskResult(task_id);
+        GetTaskResultSetInterval = setInterval(function(){
+            GetTaskResult(task_id);
+        }, 3000);
+
+    };
+
+    function GetTaskResult(task_id){
+        $.getJSON("{% url 'get_task_result' %}", {task_id: task_id}, function(callback){
+            // console.log(callback);
+            ShowResultOnPage(callback);
+        }); // end getJson
+
+    };
+
+    function ShowResultOnPage(callback) {
+        $("#show-cmd-result").html(" ");
+        $.each(callback, function(index, item){
+            var result_html = "<p>" + item.bind_host__host__host_name +
+                            "(" + item.bind_host__host__ip_addr + ")====>" +
+                            item.bind_host__host_user__user_name +
+                            "====>" + item.date + "=====>" + item.result + "</p>" +
+                            "<pre>" + item.event_log + "</pre>"
+
+            $("#show-cmd-result").append(result_html);
+
+        }); //end each
+
+    };
+    </script>
+{% endblock %}

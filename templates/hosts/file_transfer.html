@@ -1,0 +1,59 @@
+{% extends "hosts/host.html" %}
+
+{% block content-panel %}
+    <div class="col-md-3" style="margin-left: -80px; width: 300px">
+        主机组:
+        <div class="panel panel-default">
+          <div class="panel-body">
+
+            <!--获取当前登录用户的可管理主机组-->
+            <ul  class="list-group">
+              <li class="list-group-item borderless">
+                  未分组主机
+                <span class="badge">{{ request.user.bind_hosts.select_related.count }}</span>
+              </li>
+              {% for group in request.user.host_groups.select_related %}
+                <li id="group-list" class="list-group-item borderless">
+                    <input onclick="checkboxChoose(this)" data="group-choose" type="checkbox" value=""/>
+                    <a data="group" href="#">
+                        {{ group.name }}
+
+                    </a>
+                        <span class="badge">{{ group.bindhosttouser_set.select_related.count }}</span>
+                <!-- 组下面的主机列表 -->
+                    <ul class="hide list-tree">
+                        {% for h in group.bindhosttouser_set.select_related %}
+                        <li class="list-group-item borderless">
+                            <input data="host-choose" type="checkbox" value="{{ h.id }}"/> {{ h.host.host_name }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block bottom-js %}
+    <script type="text/javascript">
+            $(document).ready(function(){
+                $("#group-list a[data='group']").click(function(){
+                   $(this).nextAll().toggleClass('hide');
+
+                }); // end click
+            }); // end document ready
+
+        // 批量命令主机组列表选择函数
+        function checkboxChoose(ele) {
+            if (ele.checked){ // 如果选择主机组,则下面所有主机全选
+                $(ele).next().next().next().children().children().filter("input").prop("checked", true);
+
+            }else { // 如果取消主机组选择,则下面所有主机取消全选
+                $(ele).next().next().next().children().children().filter("input").prop("checked", false);
+            };
+
+        }; // end checkboxChoose
+    </script>
+{% endblock %}

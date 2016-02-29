@@ -1,0 +1,127 @@
+{% extends "hosts/host.html" %}
+
+{% block content-panel %}
+
+    <div class="col-md-3" style="margin-left: -80px; width: 250px">{% csrf_token %}
+        <div style=" width: 280px">
+            <li style="color: green">请选择服务器:</li>
+            <div class="panel panel-default">
+              <div class="panel-body">
+
+                <!--获取当前登录用户的可管理主机组-->
+                <ul  class="list-group">
+                  <li class="list-group-item borderless">
+                      未分组主机
+                    <span class="badge">{{ request.user.bind_hosts.select_related.count }}</span>
+                  </li>
+                  {% for group in request.user.host_groups.select_related %}
+                    <li id="group-list" class="list-group-item borderless">
+                        <input onclick="checkboxChoose(this)" data="group-choose" type="checkbox" value=""/>
+                        <a data="group" href="#">
+                            {{ group.name }}
+
+                        </a>
+                            <span class="badge">{{ group.bindhosttouser_set.select_related.count }}</span>
+                    <!-- 组下面的主机列表 -->
+                        <ul class="hide list-tree">
+                            {% for h in group.bindhosttouser_set.select_related %}
+                            <li class="list-group-item borderless">
+                                <input data="host-choose" type="checkbox" value="{{ h.id }}"/> {{ h.host.host_name }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+        </div><tr>
+        <!-- 选择服务器后点击下面的按钮，执行程序更新或回滚 -->
+
+        <div id="program_update" class="btn-group" style="margin-left: 30px">
+                <button style="margin-top: 8px; color: darkgreen" onclick="OperateChoose('program_update')">发布程序</button>
+        </div>
+        <div id="program_rollback" class="btn-group" style="margin-left: 18px">
+                <button style="margin-top: 8px; color: orangered" onclick="OperateChoose('program_rollback')">回滚程序</button>
+        </div>
+    </div>
+    <div id="program_msg_box" class="col-md-6" style="margin-left: 50px"></div>
+{% endblock %}
+
+{% block bottom-js %}
+    <script type="text/javascript">
+        $(document).ready(function(){
+            $("#group-list a[data='group']").click(function(){
+               $(this).nextAll().toggleClass('hide');
+
+            }); // end click
+        }); // end document ready
+
+        // 批量命令主机组列表选择函数
+        function checkboxChoose(ele) {
+            if (ele.checked){ // 如果选择主机组,则下面所有主机全选
+                $(ele).next().next().next().children().children().filter("input").prop("checked", true);
+
+            }else { // 如果取消主机组选择,则下面所有主机取消全选
+                $(ele).next().next().next().children().children().filter("input").prop("checked", false);
+            };
+
+        }; // end checkboxChoose
+
+        function OperateChoose(ele){
+            /* 操作方式选取函数：
+               1、程序发布。
+               2、程序回滚。
+               注意：点击操作按钮时，需要验证是否已经选则要操作的主机
+             */
+
+            var err_list = []; // 错误信息列表
+            var program_task_info = {};
+
+            program_task_info['task_type'] = ele;
+            program_task_info['csrfmiddlewaretoken'] = $("input[name='csrfmiddlewaretoken']").val();
+
+            var host_id_list = GetHostSelectedID(); // 获取当前选择的主机id
+            program_task_info['host_id_list'] = host_id_list;
+
+            if ( $(program_task_info.host_id_list).length == 0 ){ // 没有选取主机，则在前端提示错误信息
+                $("#program_msg_box").html(" ");
+                err_list.push(["未选择主机！"]);
+            }; // end if ( program_task_info.host_id_list.length == 0
+
+            // 如果错误信息列表不为空
+            if (err_list.length > 0){
+                $("#program_msg_box").html(" ");
+                // 循环错误信息列表
+                $.each(err_list, function(index, item){
+                    var err_msg = "<p style='color: red; margin-top: 150px; margin-left: 50px;'>" + "错误" + (index + 1) + " ： " + item + "</p>";
+                    $("#program_msg_box").append(err_msg);
+                    // alert("错误" + (index + 1) + " ： " + item);
+                }); // end each
+            } else { // 如果没有错误, 则向后端post操作信息
+                $("#program_msg_box").html(" ");
+                //console.log(program_task_info);
+                if (ele){
+                    $.post("{% url 'submit_task' %}", program_task_info, function(callback){
+                        console.log(JSON.parse(callback));
+                    }); // end post: 把程序操作信息post到后端
+                };
+            }; // end if (err_list.length > 0)
+
+        }; // end OperatChoose
+
+        function GetHostSelectedID(){
+            // 获取选中的主机，返回主机id列表
+            var selected_hosts = [];
+            var all_hosts = $("input[data='host-choose']");
+
+            // 循环每一台勾选的主机，并把主机id添加进selected_hosts列表
+            $.each(all_hosts, function(index, ele) {
+                if (ele.checked) {
+                    selected_hosts.push($(ele).val());
+                }; // end if (all_hosts.checked)
+            }); // end each
+            return selected_hosts;
+        }; // end GetHostSelectedID
+    </script>
+{% endblock %}

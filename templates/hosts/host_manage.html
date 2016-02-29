@@ -1,0 +1,71 @@
+{% extends "hosts/host.html" %}
+
+{% block content-panel %}
+    <div class="col-md-3" style="margin-left: -80px">
+        主机组:
+        <div class="panel panel-default">
+          <div class="panel-body">
+            <!--获取当前登录用户的可管理主机组-->
+          <ul id="host-group-list" class="list-group">
+             <a class="list-group-item" style="border: none" href="{% url 'host_manage' %}">未分组的主机<span class="badge">{{ request.user.bind_hosts.select_related.count }}</span>
+             </a>
+            {% for group in request.user.host_groups.select_related %}
+                <a class="list-group-item" onclick="showSelected({{ group.id }})" style="border: none; color: #30aade" href="{% url 'host_manage' %}?selected_gid={{ group.id }}">
+                    {{ group.name }}
+                    <span class="badge">{{ group.bindhosttouser_set.select_related.count }}</span></a>
+            {% endfor %}
+          </ul>
+          </div>
+        </div>
+    </div>
+    <div class="col-md-9" style="margin-left: -20px; width: 82%">
+        主机列表:
+        <div class="panel panel-default">
+          <div class="panel-body">
+            <table class="table table-bordered table-hover">
+            <tr>
+              <th>#</th>
+              <th>主机名</th>
+              <th>IP</th>
+              <th>系统类型</th>
+              <th>IDC</th>
+              <th>端口</th>
+              <th>用户</th>
+              <th>状态</th>
+              <th>登录</th>
+            </tr>
+               {% for h in host_list %}
+               <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ h.host.host_name }}</td>
+                  <td>{{ h.host.ip_addr }}</td>
+                  <td>{{ h.host.system_type }}</td>
+                  <td>{{ h.host.idc }}</td>
+                  <td>{{ h.host.port }}</td>
+                  <td>{{ h.host_user.user_name }}</td>
+                  <td>{{ h.host.enabled }}</td>
+                  <td><a style="color: #5bc0de; cursor: auto; text-underline-style: none">登陆</a></td>
+               </tr>
+               {% endfor %}
+              </tr>
+            </table>
+          </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block bottom-js %}
+    <script type="text/javascript">
+
+        $(document).ready(function(){
+
+        }); //end doc ready
+
+        function showSelected(gid) {
+                var g_id = gid;
+                console.log(g_id);
+                $("#host-group-list a[href='{% url "host_manage" %}?selected_gid={{ g_id }}']").addClass('active');
+            };
+
+    </script>
+{% endblock %}
