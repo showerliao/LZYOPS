@@ -7,7 +7,7 @@ Update Date :
 from django.db import transaction
 import models
 from LZYOPS import settings
-import subprocess
+import subprocess, json
 
 class Task(object):
 
@@ -72,6 +72,7 @@ class Task(object):
         task_obj = models.TaskInfo(
             task_type = self.task_type,
             user_id = self.request.user.id,
+            cmd = selected_hosts,
         )
         task_obj.save()
         task_obj.hosts.add(*selected_hosts) # 列表形式前面加*,传入列表的每一个值
@@ -88,6 +89,7 @@ class Task(object):
         p = subprocess.Popen([
             'python', settings.ProgramHandleScript,
             '-task_id', str(task_obj.id),
+            '-task_type', self.task_type,
         ])
 
         '''
@@ -99,7 +101,9 @@ class Task(object):
         '''
         return {'task_id': task_obj.id}
 
-
+    @transaction.atomic
+    def program_callback(self):
+        return 'program_callback'
 
     def get_task_result(self):
         # 从数据库获取任务日志,返回给前端
